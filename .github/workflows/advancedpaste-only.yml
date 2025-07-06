@@ -1,0 +1,75 @@
+name: Build AdvancedPaste Only
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch: # 手动触发
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: |
+          6.0.x
+          8.0.x
+          9.0.x
+
+    - name: Install MSBuild
+      uses: microsoft/setup-msbuild@v1.3.1
+
+    - name: Restore AdvancedPaste dependencies
+      run: |
+        # 只还原 AdvancedPaste 相关的包
+        nuget restore src/modules/AdvancedPaste/AdvancedPaste/AdvancedPaste.csproj
+        nuget restore src/common/ManagedCommon/ManagedCommon.csproj
+        nuget restore src/common/Common.UI/Common.UI.csproj
+
+    - name: Build AdvancedPaste
+      run: |
+        # 只构建 AdvancedPaste 模块，避免其他模块的问题
+        msbuild src/modules/AdvancedPaste/AdvancedPaste/AdvancedPaste.csproj /p:Configuration=Release /p:Platform=x64 /p:DeployOnBuild=false /p:PublishReadyToRun=false /verbosity:minimal
+
+    - name: Create artifacts
+      run: |
+        mkdir -p artifacts
+        # 复制 AdvancedPaste 可执行文件
+        if (Test-Path "x64/Release/WinUI3Apps/PowerToys.AdvancedPaste.exe") {
+          Copy-Item -Path "x64/Release/WinUI3Apps/PowerToys.AdvancedPaste.exe" -Destination "artifacts/" -Force
+          Write-Host "AdvancedPaste executable copied successfully"
+        } else {
+          Write-Host "AdvancedPaste executable not found, checking other locations..."
+          Get-ChildItem -Path "x64/Release" -Recurse -Name "*.exe" | ForEach-Object { Write-Host "Found: $_" }
+        }
+        
+        # 复制依赖 DLL
+        Copy-Item -Path "x64/Release/WinUI3Apps/*.dll" -Destination "artifacts/" -Force -ErrorAction SilentlyContinue
+
+    - name: Create zip package
+      run: |
+        $version = Get-Date -Format "yyyyMMdd-HHmm"
+        $zipName = "AdvancedPaste-x64-$version.zip"
+        Compress-Archive -Path "artifacts/*" -DestinationPath $zipName
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: AdvancedPaste-Executables
+        path: artifacts/
+        retention-days: 30
+
+    - name: Upload zip package
+      uses: actions/upload-artifact@v4
+      with:
+        name: AdvancedPaste-Package
+        path: AdvancedPaste-x64-*.zip
+        retention-days: 90 

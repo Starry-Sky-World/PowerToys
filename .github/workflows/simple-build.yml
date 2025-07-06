@@ -44,9 +44,10 @@ jobs:
     - name: Restore packages
       run: nuget restore PowerToys.sln
 
-    - name: Build x64
+    - name: Build x64 (with fixes)
       run: |
-        msbuild PowerToys.sln /p:Configuration=Release /p:Platform=x64 /p:DeployOnBuild=false /verbosity:minimal
+        # 添加构建参数来修复 ReadyToRun 和运行时标识符问题
+        msbuild PowerToys.sln /p:Configuration=Release /p:Platform=x64 /p:DeployOnBuild=false /p:PublishReadyToRun=false /p:RuntimeIdentifier=win-x64 /verbosity:minimal
 
     - name: Create build artifacts
       run: |
