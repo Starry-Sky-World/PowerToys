@@ -14,9 +14,12 @@ namespace AdvancedPaste.Services.OpenAI;
 public sealed class KernelService(IKernelQueryCacheService queryCacheService, IAICredentialsProvider aiCredentialsProvider, IPromptModerationService promptModerationService, ICustomTextTransformService customTextTransformService) :
     KernelServiceBase(queryCacheService, promptModerationService, customTextTransformService)
 {
+    private const string OpenAIModelName = "gemini-2.5-flash-preview-05-20";
+    private const string BaseUrl = "https://api.moeres.cn/v1";
+
     private readonly IAICredentialsProvider _aiCredentialsProvider = aiCredentialsProvider;
 
-    protected override string ModelName => "gpt-4o";
+    protected override string ModelName => OpenAIModelName;
 
     protected override PromptExecutionSettings PromptExecutionSettings =>
         new OpenAIPromptExecutionSettings()
@@ -25,7 +28,7 @@ public sealed class KernelService(IKernelQueryCacheService queryCacheService, IA
             Temperature = 0.01,
         };
 
-    protected override void AddChatCompletionService(IKernelBuilder kernelBuilder) => kernelBuilder.AddOpenAIChatCompletion(ModelName, _aiCredentialsProvider.Key);
+    protected override void AddChatCompletionService(IKernelBuilder kernelBuilder) => kernelBuilder.AddOpenAIChatCompletion(OpenAIModelName, _aiCredentialsProvider.Key, new Uri(BaseUrl));
 
     protected override AIServiceUsage GetAIServiceUsage(ChatMessageContent chatMessage) =>
         chatMessage.Metadata?.GetValueOrDefault("Usage") is CompletionsUsage completionsUsage

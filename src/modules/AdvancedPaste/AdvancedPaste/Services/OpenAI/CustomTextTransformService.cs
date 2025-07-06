@@ -19,7 +19,8 @@ namespace AdvancedPaste.Services.OpenAI;
 
 public sealed class CustomTextTransformService(IAICredentialsProvider aiCredentialsProvider, IPromptModerationService promptModerationService) : ICustomTextTransformService
 {
-    private const string ModelName = "gpt-3.5-turbo-instruct";
+    private const string ModelName = "gemini-2.5-flash-preview-05-20";
+    private const string BaseUrl = "https://api.moeres.cn/v1";
 
     private readonly IAICredentialsProvider _aiCredentialsProvider = aiCredentialsProvider;
     private readonly IPromptModerationService _promptModerationService = promptModerationService;
@@ -30,7 +31,7 @@ public sealed class CustomTextTransformService(IAICredentialsProvider aiCredenti
 
         await _promptModerationService.ValidateAsync(fullPrompt, cancellationToken);
 
-        OpenAIClient azureAIClient = new(_aiCredentialsProvider.Key);
+        OpenAIClient azureAIClient = new(new Uri(BaseUrl), _aiCredentialsProvider.Key);
 
         var response = await azureAIClient.GetCompletionsAsync(
             new()
