@@ -1,9 +1,12 @@
 name: WinGet submission on release
 
+# Disabled - only manual trigger allowed
+# on:
+#   workflow_dispatch:
+#   release:
+#     types: [published]
 on:
-  workflow_dispatch:
-  release:
-    types: [published]
+  workflow_dispatch: # Only manual trigger, no automatic submission
 
 jobs:
   winget:
@@ -17,8 +20,8 @@ jobs:
     env:
       WINGET_CREATE_GITHUB_TOKEN: ${{ secrets.PT_WINGET }}
 
-    # Only submit stable releases
-    if: ${{ !github.event.release.prerelease }}
+    # Disabled automatic submission - only manual trigger
+    if: false # Disable automatic submission
     steps:
       - name: Submit Microsoft.PowerToys package to Windows Package Manager Community Repository
         run: |

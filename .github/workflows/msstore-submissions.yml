@@ -1,9 +1,12 @@
 name: Store submission on release
 
+# Disabled - only manual trigger allowed
+# on:
+#   workflow_dispatch:
+#   release:
+#     types: [published]
 on:
-  workflow_dispatch:
-  release:
-    types: [published]
+  workflow_dispatch: # Only manual trigger, no automatic submission
 
 permissions:
   id-token: write
@@ -14,6 +17,8 @@ jobs:
     name: Publish Microsoft Store
     environment: store
     runs-on: ubuntu-latest
+    # Disabled automatic submission - only manual trigger
+    if: false # Disable automatic submission
     steps:
       - name: BODGY - Set up Gnome Keyring for future Cert Auth
         run: |-
