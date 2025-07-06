@@ -23,15 +23,23 @@ jobs:
           8.0.x
           9.0.x
 
-    - name: Install Windows App SDK
-      run: |
-        $url = "https://aka.ms/windowsappsdk/1.4/latest/windowsappsdk-installer.exe"
-        $output = "windowsappsdk-installer.exe"
-        Invoke-WebRequest -Uri $url -OutFile $output
-        Start-Process -FilePath $output -ArgumentList "/quiet" -Wait
-
     - name: Install MSBuild
       uses: microsoft/setup-msbuild@v1.3.1
+
+    - name: Check Windows App SDK
+      run: |
+        # 检查是否已安装 Windows App SDK
+        $sdkPath = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\makeappx.exe"
+        if (Test-Path $sdkPath) {
+          Write-Host "Windows App SDK already available"
+        } else {
+          Write-Host "Windows App SDK not found, trying to install..."
+          try {
+            winget install Microsoft.WindowsAppSDK --accept-source-agreements --accept-package-agreements
+          } catch {
+            Write-Host "Failed to install Windows App SDK, continuing anyway..."
+          }
+        }
 
     - name: Restore packages
       run: nuget restore PowerToys.sln
