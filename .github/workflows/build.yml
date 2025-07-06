@@ -1,0 +1,91 @@
+name: Build PowerToys
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch: # 允许手动触发
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    strategy:
+      matrix:
+        platform: [x64, arm64]
+        configuration: [Release]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: true
+        fetch-depth: 1
+
+    - name: Setup .NET 6.0
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '6.0.x'
+
+    - name: Setup .NET 8.0
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Setup .NET 9.0
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: Install Windows App SDK
+      run: |
+        $url = "https://aka.ms/windowsappsdk/1.4/latest/windowsappsdk-installer.exe"
+        $output = "windowsappsdk-installer.exe"
+        Invoke-WebRequest -Uri $url -OutFile $output
+        Start-Process -FilePath $output -ArgumentList "/quiet" -Wait
+
+    - name: Install Visual Studio Build Tools
+      uses: microsoft/setup-msbuild@v1.3.1
+
+    - name: Restore NuGet packages
+      run: |
+        nuget restore PowerToys.sln
+
+    - name: Build PowerToys
+      run: |
+        msbuild PowerToys.sln /p:Configuration=${{ matrix.configuration }} /p:Platform=${{ matrix.platform }} /p:DeployOnBuild=false /verbosity:minimal
+
+    - name: Create artifacts directory
+      run: |
+        mkdir -p artifacts/${{ matrix.platform }}
+
+    - name: Copy executables
+      run: |
+        Copy-Item -Path "${{ matrix.platform }}/Release/WinUI3Apps/*.exe" -Destination "artifacts/${{ matrix.platform }}/" -Force
+        Copy-Item -Path "${{ matrix.platform }}/Release/WinUI3Apps/*.dll" -Destination "artifacts/${{ matrix.platform }}/" -Force
+        Copy-Item -Path "${{ matrix.platform }}/Release/WinUI3Apps/*.pdb" -Destination "artifacts/${{ matrix.platform }}/" -Force
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: PowerToys-${{ matrix.platform }}-${{ matrix.configuration }}
+        path: artifacts/${{ matrix.platform }}/
+        retention-days: 30
+
+    - name: Create release package
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      id: create-release
+      run: |
+        $version = Get-Date -Format "yyyy.MM.dd-HHmm"
+        $zipName = "PowerToys-${{ matrix.platform }}-$version.zip"
+        Compress-Archive -Path "artifacts/${{ matrix.platform }}/*" -DestinationPath $zipName
+        echo "zipName=$zipName" >> $env:GITHUB_OUTPUT
+
+    - name: Upload release package
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      uses: actions/upload-artifact@v4
+      with:
+        name: PowerToys-Release-${{ matrix.platform }}
+        path: ${{ steps.create-release.outputs.zipName }}
+        retention-days: 90 

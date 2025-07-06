@@ -1,0 +1,67 @@
+name: Simple Build PowerToys
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch: # 手动触发
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: |
+          6.0.x
+          8.0.x
+          9.0.x
+
+    - name: Install Windows App SDK
+      run: |
+        $url = "https://aka.ms/windowsappsdk/1.4/latest/windowsappsdk-installer.exe"
+        $output = "windowsappsdk-installer.exe"
+        Invoke-WebRequest -Uri $url -OutFile $output
+        Start-Process -FilePath $output -ArgumentList "/quiet" -Wait
+
+    - name: Install MSBuild
+      uses: microsoft/setup-msbuild@v1.3.1
+
+    - name: Restore packages
+      run: nuget restore PowerToys.sln
+
+    - name: Build x64
+      run: |
+        msbuild PowerToys.sln /p:Configuration=Release /p:Platform=x64 /p:DeployOnBuild=false /verbosity:minimal
+
+    - name: Create build artifacts
+      run: |
+        mkdir -p artifacts
+        Copy-Item -Path "x64/Release/WinUI3Apps/*.exe" -Destination "artifacts/" -Force
+        Copy-Item -Path "x64/Release/WinUI3Apps/*.dll" -Destination "artifacts/" -Force
+
+    - name: Create zip package
+      run: |
+        $version = Get-Date -Format "yyyyMMdd-HHmm"
+        $zipName = "PowerToys-x64-$version.zip"
+        Compress-Archive -Path "artifacts/*" -DestinationPath $zipName
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: PowerToys-Executables
+        path: artifacts/
+        retention-days: 30
+
+    - name: Upload zip package
+      uses: actions/upload-artifact@v4
+      with:
+        name: PowerToys-Package
+        path: PowerToys-x64-*.zip
+        retention-days: 90 
