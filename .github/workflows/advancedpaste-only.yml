@@ -29,36 +29,52 @@ jobs:
 
     - name: Restore AdvancedPaste dependencies
       run: |
-        # 只还原 AdvancedPaste 相关的包
+        # 只还原 AdvancedPaste 相关的包，避免 CmdPal 问题
         nuget restore src/modules/AdvancedPaste/AdvancedPaste/AdvancedPaste.csproj
         nuget restore src/common/ManagedCommon/ManagedCommon.csproj
         nuget restore src/common/Common.UI/Common.UI.csproj
+        nuget restore src/common/SettingsAPI/SettingsAPI.csproj
 
-    - name: Build AdvancedPaste
+    - name: Build AdvancedPaste with specific options
       run: |
-        # 只构建 AdvancedPaste 模块，避免其他模块的问题
-        msbuild src/modules/AdvancedPaste/AdvancedPaste/AdvancedPaste.csproj /p:Configuration=Release /p:Platform=x64 /p:DeployOnBuild=false /p:PublishReadyToRun=false /verbosity:minimal
+        # 只构建 AdvancedPaste 模块，使用特定的构建选项避免 ReadyToRun 问题
+        msbuild src/modules/AdvancedPaste/AdvancedPaste/AdvancedPaste.csproj /p:Configuration=Release /p:Platform=x64 /p:DeployOnBuild=false /p:PublishReadyToRun=false /p:RuntimeIdentifier=win-x64 /p:SelfContained=false /verbosity:minimal
+
+    - name: Check build output
+      run: |
+        Write-Host "Checking build output..."
+        if (Test-Path "x64/Release/WinUI3Apps/PowerToys.AdvancedPaste.exe") {
+          Write-Host "✅ AdvancedPaste executable found!"
+          Get-ChildItem "x64/Release/WinUI3Apps/PowerToys.AdvancedPaste.exe" | Select-Object Name, Length, LastWriteTime
+        } else {
+          Write-Host "❌ AdvancedPaste executable not found"
+          Write-Host "Available files in WinUI3Apps:"
+          Get-ChildItem "x64/Release/WinUI3Apps/" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  - $($_.Name)" }
+        }
 
     - name: Create artifacts
       run: |
         mkdir -p artifacts
+        
         # 复制 AdvancedPaste 可执行文件
         if (Test-Path "x64/Release/WinUI3Apps/PowerToys.AdvancedPaste.exe") {
           Copy-Item -Path "x64/Release/WinUI3Apps/PowerToys.AdvancedPaste.exe" -Destination "artifacts/" -Force
-          Write-Host "AdvancedPaste executable copied successfully"
+          Write-Host "✅ AdvancedPaste executable copied successfully"
         } else {
-          Write-Host "AdvancedPaste executable not found, checking other locations..."
+          Write-Host "❌ AdvancedPaste executable not found, checking other locations..."
           Get-ChildItem -Path "x64/Release" -Recurse -Name "*.exe" | ForEach-Object { Write-Host "Found: $_" }
         }
         
         # 复制依赖 DLL
         Copy-Item -Path "x64/Release/WinUI3Apps/*.dll" -Destination "artifacts/" -Force -ErrorAction SilentlyContinue
+        Write-Host "DLL files copied"
 
     - name: Create zip package
       run: |
         $version = Get-Date -Format "yyyyMMdd-HHmm"
         $zipName = "AdvancedPaste-x64-$version.zip"
         Compress-Archive -Path "artifacts/*" -DestinationPath $zipName
+        Write-Host "✅ Created zip package: $zipName"
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4

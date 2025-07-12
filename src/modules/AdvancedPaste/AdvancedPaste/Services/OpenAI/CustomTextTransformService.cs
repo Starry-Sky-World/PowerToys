@@ -31,7 +31,7 @@ public sealed class CustomTextTransformService(IAICredentialsProvider aiCredenti
 
         await _promptModerationService.ValidateAsync(fullPrompt, cancellationToken);
 
-        OpenAIClient azureAIClient = new(new Uri(BaseUrl), _aiCredentialsProvider.Key);
+        OpenAIClient azureAIClient = new(new Uri(BaseUrl), new AzureKeyCredential(_aiCredentialsProvider.Key));
 
         var response = await azureAIClient.GetCompletionsAsync(
             new()
